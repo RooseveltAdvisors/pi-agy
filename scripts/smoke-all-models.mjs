@@ -2,7 +2,7 @@
  * Live smoke: hit every registered public model with a tiny prompt.
  * Usage: node --import tsx scripts/smoke-all-models.mjs
  *        FILTER=gemini-3.5-flash node --import tsx scripts/smoke-all-models.mjs
- *        FILTER=gemini-3.7-flash EFFORT=high node --import tsx scripts/smoke-all-models.mjs
+ *        FILTER=gemini-3.8-flash EFFORT=high node --import tsx scripts/smoke-all-models.mjs
  *        CONCURRENCY=2 TIMEOUT_MS=45000 node --import tsx scripts/smoke-all-models.mjs
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -138,7 +138,7 @@ async function smokeOne(publicId) {
       runtimeModel = candidates[i];
       const isClaude = publicId.startsWith("claude-") || runtimeModel.startsWith("claude-");
       const generationConfig = { maxOutputTokens: 256 };
-      if (runtimeModel === "gemini-3.7-flash-tiered") {
+      if (models.isTieredRuntimeModel(runtimeModel)) {
         generationConfig.thinkingConfig = {
           thinkingLevel:
             EFFORT === "high" || EFFORT === "xhigh"

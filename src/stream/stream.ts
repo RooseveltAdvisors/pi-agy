@@ -41,6 +41,7 @@ import {
   getMaxOutputTokens,
   getAntigravityRequestModelId,
   getFallbackRuntimeModel,
+  isTieredRuntimeModel,
   PROVIDER_ID,
 } from "../models/models.js";
 import { redactSecrets, safeError } from "../utils/security.js";
@@ -389,7 +390,7 @@ export function buildRequest(
 
   const generationConfig: GeminiGenerationConfig = {};
   if (options.temperature !== undefined) generationConfig.temperature = options.temperature;
-  if (runtimeModel === "gemini-3.7-flash-tiered") {
+  if (isTieredRuntimeModel(runtimeModel)) {
     const effort = options.reasoning ?? "off";
     generationConfig.thinkingConfig = {
       thinkingLevel:
