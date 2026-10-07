@@ -15,6 +15,8 @@ import {
   convertTools,
   friendlyAntigravityError,
   mapStopReason,
+  resolveSystemPrompt,
+  resolveTools,
 } from "../src/stream/index.js";
 
 const route = (model: string, effort?: string) => getAntigravityRequestModelId(model, effort);
@@ -398,6 +400,94 @@ assert.equal(
 assert.equal(getFallbackRuntimeModel("gemini-3.7-flash"), "gemini-3.6-flash-low");
 assert.equal(getFallbackRuntimeModel("gemini-3.6-flash-low"), undefined);
 assert.equal(getFallbackRuntimeModel("claude-sonnet-4-6"), undefined);
+
+// Pi 1.x hands providers a TranscriptContext: the system prompt and tool declarations
+// live in system messages, so buildRequest must replay them instead of reading
+// context.systemPrompt / context.tools (absent since pi 1.0).
+const readTool = {
+  name: "read",
+  description: "Read file contents",
+  parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+} as Tool;
+const bashTool = {
+  name: "bash",
+  description: "Execute bash commands",
+  parameters: { type: "object", properties: { command: { type: "string" } } },
+} as Tool;
+const editTool = {
+  name: "edit",
+  description: "Make precise file edits",
+  parameters: { type: "object", properties: { path: { type: "string" } } },
+} as Tool;
+
+const transcriptContext = {
+  messages: [
+    {
+      role: "system",
+      content: "",
+      sections: {
+        preamble: "Base prompt.",
+        tools: "<tools>\n- read: Read file contents\n</tools>",
+      },
+      toolsAdded: [readTool, bashTool],
+      timestamp: 0,
+    },
+    {
+      role: "system",
+      toolsRemoved: [{ name: "bash" }],
+      toolsAdded: [editTool],
+      timestamp: 1,
+    },
+    { role: "user", content: "hi", timestamp: Date.now() },
+  ],
+} as unknown as Context;
+
+assert.equal(
+  resolveSystemPrompt(transcriptContext),
+  "Base prompt.\n\n<tools>\n- read: Read file contents\n</tools>",
+  "transcript system prompt must replay content then sections",
+);
+assert.deepEqual(
+  resolveTools(transcriptContext)?.map((tool) => tool.name),
+  ["read", "edit"],
+  "transcript tools must apply toolsAdded and toolsRemoved in order",
+);
+assert.equal(
+  resolveSystemPrompt({ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] } as Context),
+  "",
+  "a transcript without system messages has no prompt",
+);
+
+// Legacy Pi still sets the two fields directly, and those win.
+const legacyContext = {
+  systemPrompt: "Legacy prompt.",
+  tools: [readTool],
+  messages: transcriptContext.messages,
+} as unknown as Context;
+assert.equal(resolveSystemPrompt(legacyContext), "Legacy prompt.");
+assert.deepEqual(
+  resolveTools(legacyContext)?.map((tool) => tool.name),
+  ["read"],
+  "legacy context.tools must win over the transcript replay",
+);
+
+const transcriptRequest = buildRequest(
+  { ...model, id: "gemini-3.8-flash", maxTokens: 65536 },
+  transcriptContext,
+  "test-proj",
+  { reasoning: "high" },
+  "gemini-3.8-flash-tiered",
+);
+assert.equal(
+  transcriptRequest.request.tools?.[0]?.functionDeclarations?.length,
+  2,
+  "transcript tools must reach the request",
+);
+assert.equal(
+  transcriptRequest.request.systemInstruction?.parts?.length,
+  3,
+  "transcript system prompt must reach the request",
+);
 
 // Test buildRequest output token clamping
 const dummyContext: Context = {

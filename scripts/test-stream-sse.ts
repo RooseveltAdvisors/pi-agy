@@ -138,6 +138,31 @@ async function main() {
   const { hasContent } = await run([truncated.slice(0, 40), truncated.slice(40)]);
   assert(hasContent, "truncated body: expected content");
 
+  // A failed finish must carry a concrete errorMessage. Pi reports "Unknown error"
+  // without one, which is what hid the MALFORMED_FUNCTION_CALL failures.
+  const MALFORMED_BODY =
+    sse({
+      response: {
+        candidates: [
+          {
+            content: { parts: [{ text: 'call:read_file{"file_path":"AGENTS.md"}' }] },
+            finishReason: "MALFORMED_FUNCTION_CALL",
+            finishMessage: 'Malformed function call: call:read_file{"file_path":"AGENTS.md"}',
+          },
+        ],
+        usageMetadata: { promptTokenCount: 104, candidatesTokenCount: 15, totalTokenCount: 241 },
+      },
+    }) +
+    "data: [DONE]\n";
+  const malformed = await run([MALFORMED_BODY]);
+  assert(malformed.output.stopReason === "error", `malformed: stopReason ${malformed.output.stopReason}`);
+  assert(
+    typeof malformed.output.errorMessage === "string" &&
+      malformed.output.errorMessage.includes("MALFORMED_FUNCTION_CALL") &&
+      malformed.output.errorMessage.includes("Malformed function call"),
+    `malformed: errorMessage was ${JSON.stringify(malformed.output.errorMessage)}`,
+  );
+
   console.log(`stream SSE: ${sizes.length} chunk-boundary cases passed`);
 }
 

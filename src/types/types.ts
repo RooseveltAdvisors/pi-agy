@@ -149,6 +149,8 @@ export type StreamUsageMetadata = {
 export type StreamCandidate = {
   content?: { parts?: StreamPart[] };
   finishReason?: string;
+  /** Backend detail for a failed finish, e.g. MALFORMED_FUNCTION_CALL. */
+  finishMessage?: string;
 };
 
 export type StreamResponseData = {

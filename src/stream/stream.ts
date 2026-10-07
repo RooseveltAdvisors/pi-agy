@@ -334,6 +334,79 @@ function normalizeCustomToolSchema(schema: unknown): unknown {
 }
 
 /**
+ * Pi 1.x hands providers a TranscriptContext: the system prompt and the tool
+ * declarations live in transcript system messages (`sections` / `toolsAdded`)
+ * instead of `context.systemPrompt` and `context.tools`. Older Pi versions set
+ * those two fields directly and send no system messages, so prefer them and
+ * replay the transcript only when they are absent. The replay mirrors pi-ai's
+ * `getCurrentTools` / `getCurrentSystemPrompt`.
+ */
+
+type SystemMessageLike = {
+  role?: string;
+  content?: unknown;
+  sections?: Record<string, string | null>;
+  toolsAdded?: readonly Tool[];
+  toolsRemoved?: readonly { readonly name?: string }[];
+};
+
+function transcriptSystemMessages(context: Context): SystemMessageLike[] {
+  const messages = (context.messages ?? []) as readonly SystemMessageLike[];
+  return messages.filter((message) => message.role === "system");
+}
+
+function systemContentText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(
+      (block): block is TextContent =>
+        typeof block === "object" &&
+        block !== null &&
+        (block as TextContent).type === "text" &&
+        typeof (block as TextContent).text === "string",
+    )
+    .map((block) => block.text)
+    .join("\n");
+}
+
+/** Current system prompt for the transcript, or the legacy field when Pi still sets it. */
+export function resolveSystemPrompt(context: Context): string {
+  if (context.systemPrompt) return context.systemPrompt;
+  const content: string[] = [];
+  const sections = new Map<string, string>();
+  for (const message of transcriptSystemMessages(context)) {
+    const text = systemContentText(message.content);
+    if (text.length > 0) content.push(text);
+    for (const [name, value] of Object.entries(message.sections ?? {})) {
+      if (value === null) sections.delete(name);
+      else sections.set(name, value);
+    }
+  }
+  return [content.join("\n\n"), ...sections.values()]
+    .filter((part) => part.length > 0)
+    .join("\n\n");
+}
+
+/** Current tool set for the transcript, or the legacy field when Pi still sets it. */
+export function resolveTools(context: Context): Tool[] | undefined {
+  if (context.tools?.length) return context.tools;
+  const messages = transcriptSystemMessages(context);
+  if (messages.length === 0) return undefined;
+  const tools = new Map<string, Tool>();
+  for (const message of messages) {
+    for (const reference of message.toolsRemoved ?? []) {
+      if (reference?.name) tools.delete(reference.name);
+    }
+    for (const tool of message.toolsAdded ?? []) {
+      if (tool?.name) tools.set(tool.name, tool);
+    }
+  }
+  const resolved = [...tools.values()];
+  return resolved.length > 0 ? resolved : undefined;
+}
+
+/**
  * Gemini accepts JSON Schema through parametersJsonSchema. Claude and GPT-OSS
  * use Cloud Code Assist's custom-tool bridge, which requires a compatible
  * Draft 2020-12 subset in the legacy parameters field.
@@ -376,6 +449,7 @@ export function buildRequest(
   options: AntigravityStreamOptions,
   runtimeModel: string,
 ): AntigravityGenerateRequest {
+  const systemPrompt = resolveSystemPrompt(context);
   const request: GeminiRequestBody = {
     contents: convertMessages(model, context, runtimeModel),
     systemInstruction: {
@@ -383,7 +457,7 @@ export function buildRequest(
       parts: [
         { text: ANTIGRAVITY_SYSTEM_INSTRUCTION },
         { text: ANTIGRAVITY_NO_PREAMBLE_INSTRUCTION },
-        ...(context.systemPrompt ? [{ text: sanitizeText(context.systemPrompt) }] : []),
+        ...(systemPrompt ? [{ text: sanitizeText(systemPrompt) }] : []),
       ],
     },
   };
@@ -406,7 +480,7 @@ export function buildRequest(
   if (Object.keys(generationConfig).length) request.generationConfig = generationConfig;
 
   const tools = convertTools(
-    context.tools,
+    resolveTools(context),
     model.id.startsWith("claude-") || model.id.startsWith("gpt-oss-"),
   );
   if (tools) {
@@ -677,9 +751,18 @@ export async function streamResponse(
       }
 
       if (candidate?.finishReason) {
-        output.stopReason = blocks.some((b) => b.type === "toolCall")
+        const stopReason = blocks.some((b) => b.type === "toolCall")
           ? StopReason.ToolUse
           : mapStopReason(candidate.finishReason);
+        output.stopReason = stopReason;
+        // Pi requires a concrete message on an error stop. Without one the UI can
+        // only say "Unknown error", which is what hid the MALFORMED_FUNCTION_CALL
+        // failures behind a tool-less request.
+        if (stopReason === StopReason.Error && !output.errorMessage) {
+          output.errorMessage = candidate.finishMessage
+            ? `${candidate.finishReason}: ${candidate.finishMessage}`
+            : `Antigravity stopped with finishReason ${candidate.finishReason}`;
+        }
       }
 
       if (responseData.usageMetadata) {
