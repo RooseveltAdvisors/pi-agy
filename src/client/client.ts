@@ -207,15 +207,11 @@ export function isUsableRuntimeModelId(id: string): boolean {
 function buildModelMatchRegex(requestedId: string): RegExp {
   const req = requestedId.toLowerCase();
   // Display names from fetchAvailableModels (keys are the real runtime ids):
-  //   gemini-3.7-flash-low       → "Gemini 3.7 Flash (Low)"
-  //   gemini-3.7-flash-medium    → "Gemini 3.7 Flash (Medium)"
-  //   gemini-3.7-flash-high      → "Gemini 3.7 Flash (High)"
-  //   gemini-3.6-flash-low       → "Gemini 3.6 Flash (Low)"
-  //   gemini-3.6-flash-medium    → "Gemini 3.6 Flash (Medium)"
-  //   gemini-3.6-flash-high      → "Gemini 3.6 Flash (High)"
-  //   gemini-3.5-flash-extra-low → "Gemini 3.5 Flash (Low)"
-  //   gemini-3.5-flash-low       → "Gemini 3.5 Flash (Medium)"
-  //   gemini-3-flash-agent       → "Gemini 3.5 Flash (High)"
+  //   claude-sonnet-5-5-high   → "Claude Sonnet 5.5 (High)"
+  //   claude-opus-5-5-high     → "Claude Opus 5.5 (High)"
+  //   gemini-3.5-flash-lite    → "Gemini 3.5 Flash Lite"
+  //   gemini-3.8-flash-tiered  → no display name
+  // Retired ids keep their patterns so a pinned runtime override still resolves.
   if (req === "gemini-3.7-flash-low") return /gemini[- ]3\.7[- ]flash \(low\)/i;
   if (req === "gemini-3.7-flash-medium") return /gemini[- ]3\.7[- ]flash \(medium\)/i;
   if (req === "gemini-3.7-flash-high") return /gemini[- ]3\.7[- ]flash \(high\)/i;
@@ -227,6 +223,8 @@ function buildModelMatchRegex(requestedId: string): RegExp {
     return /gemini[- ]3\.5[- ]flash \(medium\)/i;
   if (req === "gemini-3.5-flash-high" || req === "gemini-3-flash-agent")
     return /gemini[- ]3\.5[- ]flash \(high\)/i;
+  if (req.includes("claude-opus-5-5")) return /claude.*opus.*5\.5/i;
+  if (req.includes("claude-sonnet-5-5")) return /claude.*sonnet.*5\.5/i;
   if (req.includes("claude-opus-4-6")) return /claude.*opus.*4\.6/i;
   if (req.includes("claude-sonnet-4-6")) return /claude.*sonnet.*4\.6/i;
   if (req.includes("gpt-oss-120b")) return /gpt.*oss.*120b/i;

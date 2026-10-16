@@ -145,7 +145,7 @@ async function fetchAvailableModelsFromEndpoint(
 
 /**
  * Merge fetchAvailableModels across endpoint candidates so daily/sandbox-only
- * models (e.g. Gemini 3.6 Flash) appear alongside production catalog entries.
+ * models (e.g. Gemini 3.5 Flash Lite) appear alongside production catalog entries.
  */
 async function fetchMergedAvailableModels(
   token: string,

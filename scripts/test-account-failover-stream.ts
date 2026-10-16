@@ -45,7 +45,7 @@ try {
     onTransition: ({ from, to }) => transitions.push(`${from.label}->${to.label}`),
   });
   const streamProvider = createAntigravityStream(pool);
-  const model = ANTIGRAVITY_MODELS.find((candidate) => candidate.id === "gemini-3.7-flash");
+  const model = ANTIGRAVITY_MODELS.find((candidate) => candidate.id === "gemini-3.8-flash");
   assert.ok(model);
 
   const context: Context = {

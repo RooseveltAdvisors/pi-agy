@@ -29,32 +29,27 @@ const routeCases: Array<[string, string | undefined, string]> = [
   ["gemini-3.8-flash", "medium", "gemini-3.8-flash-tiered"],
   ["gemini-3.8-flash", "high", "gemini-3.8-flash-tiered"],
   ["gemini-3.8-flash", "xhigh", "gemini-3.8-flash-tiered"],
-  ["gemini-3.7-flash", undefined, "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "off", "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "minimal", "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "low", "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "medium", "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "high", "gemini-3.7-flash-tiered"],
-  ["gemini-3.7-flash", "xhigh", "gemini-3.7-flash-tiered"],
-  ["gemini-3.6-flash", undefined, "gemini-3.6-flash-low"],
-  ["gemini-3.6-flash", "off", "gemini-3.6-flash-low"],
-  ["gemini-3.6-flash", "minimal", "gemini-3.6-flash-low"],
-  ["gemini-3.6-flash", "low", "gemini-3.6-flash-low"],
-  ["gemini-3.6-flash", "medium", "gemini-3.6-flash-medium"],
-  ["gemini-3.6-flash", "high", "gemini-3.6-flash-high"],
-  ["gemini-3.6-flash", "xhigh", "gemini-3.6-flash-high"],
-  ["gemini-3.5-flash", undefined, "gemini-3.5-flash-extra-low"],
-  ["gemini-3.5-flash", "off", "gemini-3.5-flash-extra-low"],
-  ["gemini-3.5-flash", "minimal", "gemini-3.5-flash-extra-low"],
-  ["gemini-3.5-flash", "low", "gemini-3.5-flash-low"],
-  ["gemini-3.5-flash", "medium", "gemini-3.5-flash-low"],
-  ["gemini-3.5-flash", "high", "gemini-3-flash-agent"],
-  ["gemini-3.5-flash", "xhigh", "gemini-3-flash-agent"],
-  ["gemini-3.1-pro", "medium", "gemini-3.1-pro-low"],
-  ["gemini-3.1-pro", "high", "gemini-pro-agent"],
-  ["gemini-3.1-pro", "xhigh", "gemini-pro-agent"],
-  ["claude-sonnet-4-6", "xhigh", "claude-sonnet-4-6"],
-  ["claude-opus-4-6", "high", "claude-opus-4-6-thinking"],
+  ["claude-opus-5-5", undefined, "claude-opus-5-5-low"],
+  ["claude-opus-5-5", "off", "claude-opus-5-5-low"],
+  ["claude-opus-5-5", "minimal", "claude-opus-5-5-low"],
+  ["claude-opus-5-5", "low", "claude-opus-5-5-low"],
+  ["claude-opus-5-5", "medium", "claude-opus-5-5-medium"],
+  ["claude-opus-5-5", "high", "claude-opus-5-5-high"],
+  ["claude-opus-5-5", "xhigh", "claude-opus-5-5-high"],
+  ["claude-sonnet-5-5", undefined, "claude-sonnet-5-5-low"],
+  ["claude-sonnet-5-5", "off", "claude-sonnet-5-5-low"],
+  ["claude-sonnet-5-5", "minimal", "claude-sonnet-5-5-low"],
+  ["claude-sonnet-5-5", "low", "claude-sonnet-5-5-low"],
+  ["claude-sonnet-5-5", "medium", "claude-sonnet-5-5-medium"],
+  ["claude-sonnet-5-5", "high", "claude-sonnet-5-5-high"],
+  ["claude-sonnet-5-5", "xhigh", "claude-sonnet-5-5-high"],
+  ["gemini-3.5-flash-lite", undefined, "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "off", "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "minimal", "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "low", "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "medium", "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "high", "gemini-3.5-flash-lite"],
+  ["gemini-3.5-flash-lite", "xhigh", "gemini-3.5-flash-lite"],
   ["gpt-oss-120b", "high", "gpt-oss-120b-medium"],
   ["unknown-model", "high", "unknown-model"],
 ];
@@ -65,13 +60,10 @@ for (const [model, effort, expected] of routeCases) {
 
 const modelIds = new Set(ANTIGRAVITY_MODELS.map((model) => model.id));
 const expectedModels = [
+  "claude-opus-5-5",
+  "claude-sonnet-5-5",
   "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-  "gemini-3.1-pro",
-  "claude-sonnet-4-6",
-  "claude-opus-4-6",
+  "gemini-3.5-flash-lite",
   "gpt-oss-120b",
 ];
 assert.equal(
@@ -84,13 +76,11 @@ for (const expected of expectedModels) {
 }
 
 const expectedThinkingLevels: Record<string, string[]> = {
+  "claude-opus-5-5": ["low", "medium", "high"],
+  "claude-sonnet-5-5": ["low", "medium", "high"],
   "gemini-3.8-flash": ["low", "medium", "high"],
-  "gemini-3.7-flash": ["low", "medium", "high"],
-  "gemini-3.6-flash": ["low", "medium", "high"],
-  "gemini-3.5-flash": ["low", "medium", "high"],
-  "gemini-3.1-pro": ["low", "high"],
-  "claude-opus-4-6": ["high"],
-  "claude-sonnet-4-6": ["high"],
+  // No effort selector on the lite runtime: one level only.
+  "gemini-3.5-flash-lite": ["high"],
   "gpt-oss-120b": ["medium"],
 };
 for (const configuredModel of ANTIGRAVITY_MODELS) {
@@ -377,29 +367,26 @@ assert.equal(imgPart.inlineData.mimeType, "image/jpeg");
 
 // Test max output token limits per runtime model
 assert.equal(getMaxOutputTokens("gemini-3.8-flash", "gemini-3.8-flash-tiered"), 65536);
-assert.equal(getMaxOutputTokens("gemini-3.7-flash", "gemini-3.7-flash-tiered"), 65536);
-assert.equal(getMaxOutputTokens("gemini-3.6-flash", "gemini-3.6-flash-low"), 65536);
-assert.equal(getMaxOutputTokens("gemini-3.1-pro", "gemini-3.1-pro-low"), 65535);
-assert.equal(getMaxOutputTokens("claude-sonnet-4-6", "claude-sonnet-4-6"), 64000);
+assert.equal(getMaxOutputTokens("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"), 65535);
+assert.equal(getMaxOutputTokens("claude-sonnet-5-5", "claude-sonnet-5-5-high"), 128000);
+assert.equal(getMaxOutputTokens("claude-opus-5-5", "claude-opus-5-5-high"), 128000);
 assert.equal(getMaxOutputTokens("gpt-oss-120b", "gpt-oss-120b-medium"), 32768);
+// Retired runtimes keep their limits for pinned overrides.
+assert.equal(getMaxOutputTokens("gemini-3.7-flash", "gemini-3.7-flash-tiered"), 65536);
 
-// Test fallback runtime models
+// Test fallback runtime models: every Gemini fallback must land on a serving ID.
 assert.equal(
   getFallbackRuntimeModel("gemini-3.8-flash-tiered", "medium"),
-  "gemini-3.7-flash-tiered",
+  "gemini-3.5-flash-lite",
 );
-assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-low"), "gemini-3.7-flash-low");
-assert.equal(getFallbackRuntimeModel("gemini-3.8-flash"), "gemini-3.7-flash-tiered");
-assert.equal(getFallbackRuntimeModel("gemini-3.7-flash-low"), "gemini-3.6-flash-low");
-assert.equal(getFallbackRuntimeModel("gemini-3.7-flash-medium"), "gemini-3.6-flash-medium");
-assert.equal(getFallbackRuntimeModel("gemini-3.7-flash-high"), "gemini-3.6-flash-high");
-assert.equal(
-  getFallbackRuntimeModel("gemini-3.7-flash-tiered", "medium"),
-  "gemini-3.6-flash-medium",
-);
-assert.equal(getFallbackRuntimeModel("gemini-3.7-flash"), "gemini-3.6-flash-low");
-assert.equal(getFallbackRuntimeModel("gemini-3.6-flash-low"), undefined);
-assert.equal(getFallbackRuntimeModel("claude-sonnet-4-6"), undefined);
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash-low"), "gemini-3.5-flash-low");
+assert.equal(getFallbackRuntimeModel("gemini-3.8-flash"), "gemini-3.5-flash-lite");
+assert.equal(getFallbackRuntimeModel("gemini-3.7-flash-tiered"), "gemini-3.5-flash-lite");
+assert.equal(getFallbackRuntimeModel("gemini-3.7-flash-high"), "gemini-3.5-flash-lite");
+assert.equal(getFallbackRuntimeModel("gemini-3.6-flash-medium"), "gemini-3.5-flash-lite");
+assert.equal(getFallbackRuntimeModel("gemini-3.7-flash"), "gemini-3.5-flash-lite");
+assert.equal(getFallbackRuntimeModel("gemini-3.1-pro-low"), undefined);
+assert.equal(getFallbackRuntimeModel("claude-sonnet-5-5-high"), undefined);
 
 // Pi 1.x hands providers a TranscriptContext: the system prompt and tool declarations
 // live in system messages, so buildRequest must replay them instead of reading

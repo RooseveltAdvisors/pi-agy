@@ -45,20 +45,16 @@ const schemaProbeTool = {
 } as Tool;
 
 const modelCases = [
-  { label: "Gemini 3.7 Flash (Low)", modelId: "gemini-3.7-flash", effort: "low" },
-  { label: "Gemini 3.7 Flash (Medium)", modelId: "gemini-3.7-flash", effort: "medium" },
-  { label: "Gemini 3.7 Flash (High)", modelId: "gemini-3.7-flash", effort: "high" },
-  { label: "Gemini 3.6 Flash (Low)", modelId: "gemini-3.6-flash", effort: "low" },
-  { label: "Gemini 3.6 Flash (Medium)", modelId: "gemini-3.6-flash", effort: "medium" },
-  { label: "Gemini 3.6 Flash (High)", modelId: "gemini-3.6-flash", effort: "high" },
-  { label: "Gemini 3.5 Flash (Low)", modelId: "gemini-3.5-flash", effort: "minimal" },
-  { label: "Gemini 3.5 Flash (Medium)", modelId: "gemini-3.5-flash", effort: "low" },
-  { label: "Gemini 3.5 Flash (High)", modelId: "gemini-3.5-flash", effort: "high" },
-  { label: "Gemini 3.1 Pro (Low)", modelId: "gemini-3.1-pro", effort: "low" },
-  // High routes to gemini-pro-agent (gemini-3.1-pro-high currently 400s on streamGenerateContent).
-  { label: "Gemini 3.1 Pro (High)", modelId: "gemini-3.1-pro", effort: "high" },
-  { label: "Claude Sonnet 4.6 (Thinking)", modelId: "claude-sonnet-4-6", effort: "high" },
-  { label: "Claude Opus 4.6 (Thinking)", modelId: "claude-opus-4-6", effort: "high" },
+  { label: "Claude Opus 5.5 (Low)", modelId: "claude-opus-5-5", effort: "low" },
+  { label: "Claude Opus 5.5 (Medium)", modelId: "claude-opus-5-5", effort: "medium" },
+  { label: "Claude Opus 5.5 (High)", modelId: "claude-opus-5-5", effort: "high" },
+  { label: "Claude Sonnet 5.5 (Low)", modelId: "claude-sonnet-5-5", effort: "low" },
+  { label: "Claude Sonnet 5.5 (Medium)", modelId: "claude-sonnet-5-5", effort: "medium" },
+  { label: "Claude Sonnet 5.5 (High)", modelId: "claude-sonnet-5-5", effort: "high" },
+  { label: "Gemini 3.8 Flash (Low)", modelId: "gemini-3.8-flash", effort: "low" },
+  { label: "Gemini 3.8 Flash (Medium)", modelId: "gemini-3.8-flash", effort: "medium" },
+  { label: "Gemini 3.8 Flash (High)", modelId: "gemini-3.8-flash", effort: "high" },
+  { label: "Gemini 3.5 Flash Lite", modelId: "gemini-3.5-flash-lite", effort: "high" },
   { label: "GPT-OSS 120B (Medium)", modelId: "gpt-oss-120b", effort: "high" },
 ] as const;
 
@@ -66,9 +62,12 @@ for (const { label, modelId, effort } of modelCases) {
   const runtimeModel = getAntigravityRequestModelId(modelId, effort);
   const isCustomBackend = modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
   const tools = convertTools([schemaProbeTool], isCustomBackend);
-  const response = await fetch(
-    `${endpointCandidates()[0]}/v1internal:streamGenerateContent?alt=sse`,
-    {
+  let response: Response | undefined;
+  let detail = "";
+  // The production endpoint can return 429 for this account while the sandbox
+  // endpoint still serves the model, so walk the candidates like the stream does.
+  for (const endpoint of endpointCandidates()) {
+    response = await fetch(`${endpoint}/v1internal:streamGenerateContent?alt=sse`, {
       method: "POST",
       headers: {
         ...antigravityHeaders(refreshed.access),
@@ -91,13 +90,15 @@ for (const { label, modelId, effort } of modelCases) {
         userAgent: "antigravity",
         requestId: nowRequestId(),
       }),
-    },
-  );
+    });
+    if (response.ok) break;
+    detail = (await response.text()).replace(/ya29\.[A-Za-z0-9._~+/-]+=*/g, "[redacted]");
+    if (![403, 404, 429, 500, 502, 503, 504].includes(response.status)) break;
+  }
 
-  if (!response.ok) {
-    const detail = (await response.text()).replace(/ya29\.[A-Za-z0-9._~+/-]+=*/g, "[redacted]");
+  if (!response?.ok) {
     throw new Error(
-      `${label} rejected the tool schema (${response.status}): ${detail.slice(0, 500)}`,
+      `${label} rejected the tool schema (${response?.status ?? "no response"}): ${detail.slice(0, 500)}`,
     );
   }
   console.log(`${label}: ${runtimeModel} accepted the tool schema (${response.status})`);
