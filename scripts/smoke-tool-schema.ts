@@ -45,6 +45,8 @@ const schemaProbeTool = {
 } as Tool;
 
 const modelCases = [
+  { label: "Gemini 4 Argon (Low)", modelId: "gemini-4-argon", effort: "low" },
+  { label: "Gemini 4 Argon (High)", modelId: "gemini-4-argon", effort: "high" },
   { label: "Claude Opus 5.5 (Low)", modelId: "claude-opus-5-5", effort: "low" },
   { label: "Claude Opus 5.5 (Medium)", modelId: "claude-opus-5-5", effort: "medium" },
   { label: "Claude Opus 5.5 (High)", modelId: "claude-opus-5-5", effort: "high" },

@@ -88,11 +88,11 @@ Model availability, entitlement, quota groups, and resets are returned by the se
 
 The static model IDs registered by this extension match the Cloud Code Assist catalog, verified against the live backend. Use `/antigravity.models` to see live availability and quota for your account - the table below is a reference for what each public model ID maps to.
 
-`agy models` (CLI 1.4.0, probed 2026-10-07) advertises Gemini 4 Argon, Gemini 3.8 Flash, Claude Sonnet 5.5, Claude Opus 5.5, and GPT-OSS 120B. Pi registers five IDs from that list plus `gemini-3.5-flash-lite`, which the API serves even though the CLI does not list it.
+`agy models` (CLI 1.4.0, probed 2026-10-07) advertises Gemini 4 Argon, Gemini 3.8 Flash, Claude Sonnet 5.5, Claude Opus 5.5, and GPT-OSS 120B. Pi registers all five plus `gemini-3.5-flash-lite`, which the API serves even though the CLI does not list it.
 
-Gemini 4 Argon is the one exception: the CLI lists it, but `fetchAvailableModels` does not return it for every account yet and every Argon runtime ID answers 404, so this extension does not register it. Registering an unverified ID would put a model in `/model` that cannot answer.
+Model availability depends on the User-Agent family. With `antigravity/1.15.8 <os>/<arch>`, what this extension sent before, this account got a 23-id catalog and `gemini-4-argon-*` answered 404 while `agy models` listed those models as available. `antigravity/cli/1.4.0` returns a 29-id catalog that includes Gemini 4 Argon and serves every runtime in the table below, so the `cli` form is the default now. The measurement sits next to `defaultUserAgent` in `src/client/client.ts`, and `ANTIGRAVITY_USER_AGENT` overrides it if Google moves the floor again.
 
-On 2026-10-07 the backend retired the models this extension used to expose. Gemini 3.7 Flash, Gemini 3.6 Flash, and Gemini 3.1 Pro now return 404, and Gemini 3.5 Flash, Claude Sonnet 4.6, and Claude Opus 4.6 answer with a "no longer available" message instead of the model. Those IDs are no longer registered, so `/model` only offers IDs that answer.
+On 2026-10-07 the backend retired the models this extension used to expose. Gemini 3.7 Flash, Gemini 3.6 Flash, and Gemini 3.1 Pro return 404, and Gemini 3.5 Flash, Claude Sonnet 4.6, and Claude Opus 4.6 answer with a "no longer available" message instead of the model. Those IDs are no longer registered, so `/model` only offers IDs that answer. The check was repeated with the `cli` User-Agent, so it is not an artifact of the old UA.
 
 ### Why Claude and GPT-OSS appear
 
@@ -102,6 +102,7 @@ The backend's display labels do not always match its runtime IDs. Gemini 3.8 Fla
 
 | Public model ID         | Input       | Thinking levels shown | Max output tokens | Request routing                                                                                     |
 | ----------------------- | ----------- | --------------------- | ----------------- | --------------------------------------------------------------------------------------------------- |
+| `gemini-4-argon`        | Text, image | Low, Medium, High     | 65,536            | low → `gemini-4-argon-low`; medium → `gemini-4-argon-medium`; high → `gemini-4-argon-high`          |
 | `claude-opus-5-5`       | Text, image | Low, Medium, High     | 128,000           | low → `claude-opus-5-5-low`; medium → `claude-opus-5-5-medium`; high → `claude-opus-5-5-high`       |
 | `claude-sonnet-5-5`     | Text, image | Low, Medium, High     | 128,000           | low → `claude-sonnet-5-5-low`; medium → `claude-sonnet-5-5-medium`; high → `claude-sonnet-5-5-high` |
 | `gemini-3.8-flash`      | Text, image | Low, Medium, High     | 65,536            | `gemini-3.8-flash-tiered` + `thinkingLevel` Low/Medium/High                                         |
@@ -115,6 +116,7 @@ To limit which models Pi cycles through, enable specific entries in `~/.pi/agent
   "models": {
     "antigravity/claude-opus-5-5": { "enabled": true },
     "antigravity/claude-sonnet-5-5": { "enabled": true },
+    "antigravity/gemini-4-argon": { "enabled": true },
     "antigravity/gemini-3.8-flash": { "enabled": true },
     "antigravity/gemini-3.5-flash-lite": { "enabled": true },
     "antigravity/gpt-oss-120b": { "enabled": true }
@@ -126,18 +128,18 @@ To limit which models Pi cycles through, enable specific entries in `~/.pi/agent
 
 All primary environment variables start with `ANTIGRAVITY_`. The legacy `NOAGY_` prefix is also accepted for compatibility.
 
-| Variable                    | Purpose                                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `ANTIGRAVITY_BASE_URL`      | Override the API base URL. It must be HTTPS, contain no URL credentials, and target an allowed Google APIs host. |
-| `ANTIGRAVITY_PROJECT_ID`    | Use a specific Cloud Code Assist project ID instead of discovery or the stable account fallback.                 |
-| `ANTIGRAVITY_CALLBACK_HOST` | Bind OAuth callback to `127.0.0.1`, `::1`, or `localhost` only. Defaults to `127.0.0.1`.                         |
-| `ANTIGRAVITY_USER_AGENT`    | Override the request user-agent.                                                                                 |
-| `ANTIGRAVITY_RUNTIME_MODEL` | Pin requests to a runtime model ID, bypassing normal static routing.                                             |
-| `ANTIGRAVITY_CLIENT_ID`     | Use a custom Google OAuth client ID.                                                                             |
-| `ANTIGRAVITY_CLIENT_SECRET` | Use a custom Google OAuth client secret. Keep it out of source control and shell history.                        |
-| `ANTIGRAVITY_NO_KEEPALIVE`  | Set to `1` to disable the long-lived keep-alive connection pool and use Node's fetch defaults.                   |
-| `ANTIGRAVITY_NO_PREWARM`    | Set to `1` to skip the TLS pre-warm request made when the extension loads.                                       |
-| `ANTIGRAVITY_HTTP2`         | Set to `1` to negotiate HTTP/2 for API requests. Off by default.                                                 |
+| Variable                    | Purpose                                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `ANTIGRAVITY_BASE_URL`      | Override the API base URL. It must be HTTPS, contain no URL credentials, and target an allowed Google APIs host.              |
+| `ANTIGRAVITY_PROJECT_ID`    | Use a specific Cloud Code Assist project ID instead of discovery or the stable account fallback.                              |
+| `ANTIGRAVITY_CALLBACK_HOST` | Bind OAuth callback to `127.0.0.1`, `::1`, or `localhost` only. Defaults to `127.0.0.1`.                                      |
+| `ANTIGRAVITY_USER_AGENT`    | Override the request user-agent. Keep it in the `antigravity/cli/` family or preview models such as Gemini 4 Argon disappear. |
+| `ANTIGRAVITY_RUNTIME_MODEL` | Pin requests to a runtime model ID, bypassing normal static routing.                                                          |
+| `ANTIGRAVITY_CLIENT_ID`     | Use a custom Google OAuth client ID.                                                                                          |
+| `ANTIGRAVITY_CLIENT_SECRET` | Use a custom Google OAuth client secret. Keep it out of source control and shell history.                                     |
+| `ANTIGRAVITY_NO_KEEPALIVE`  | Set to `1` to disable the long-lived keep-alive connection pool and use Node's fetch defaults.                                |
+| `ANTIGRAVITY_NO_PREWARM`    | Set to `1` to skip the TLS pre-warm request made when the extension loads.                                                    |
+| `ANTIGRAVITY_HTTP2`         | Set to `1` to negotiate HTTP/2 for API requests. Off by default.                                                              |
 
 By default, the provider tries `https://cloudcode-pa.googleapis.com` and then its Google sandbox fallback if necessary. Prefer the built-in OAuth client unless you have a reason to use your own credentials.
 

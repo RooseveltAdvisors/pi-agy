@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Api, Context, Model, Tool } from "@earendil-works/pi-ai";
-import { defaultProjectId, stableProjectId } from "../src/client/index.js";
+import { antigravityHeaders, defaultProjectId, stableProjectId } from "../src/client/index.js";
 import { StopReason } from "../src/types/enums.js";
 import {
   ANTIGRAVITY_MODELS,
@@ -22,6 +22,13 @@ import {
 const route = (model: string, effort?: string) => getAntigravityRequestModelId(model, effort);
 
 const routeCases: Array<[string, string | undefined, string]> = [
+  ["gemini-4-argon", undefined, "gemini-4-argon-low"],
+  ["gemini-4-argon", "off", "gemini-4-argon-low"],
+  ["gemini-4-argon", "minimal", "gemini-4-argon-low"],
+  ["gemini-4-argon", "low", "gemini-4-argon-low"],
+  ["gemini-4-argon", "medium", "gemini-4-argon-medium"],
+  ["gemini-4-argon", "high", "gemini-4-argon-high"],
+  ["gemini-4-argon", "xhigh", "gemini-4-argon-high"],
   ["gemini-3.8-flash", undefined, "gemini-3.8-flash-tiered"],
   ["gemini-3.8-flash", "off", "gemini-3.8-flash-tiered"],
   ["gemini-3.8-flash", "minimal", "gemini-3.8-flash-tiered"],
@@ -60,6 +67,7 @@ for (const [model, effort, expected] of routeCases) {
 
 const modelIds = new Set(ANTIGRAVITY_MODELS.map((model) => model.id));
 const expectedModels = [
+  "gemini-4-argon",
   "claude-opus-5-5",
   "claude-sonnet-5-5",
   "gemini-3.8-flash",
@@ -76,6 +84,7 @@ for (const expected of expectedModels) {
 }
 
 const expectedThinkingLevels: Record<string, string[]> = {
+  "gemini-4-argon": ["low", "medium", "high"],
   "claude-opus-5-5": ["low", "medium", "high"],
   "claude-sonnet-5-5": ["low", "medium", "high"],
   "gemini-3.8-flash": ["low", "medium", "high"],
@@ -366,6 +375,7 @@ assert.equal(imgPart.inlineData.data, "/9j/4AAQSkZJRg==");
 assert.equal(imgPart.inlineData.mimeType, "image/jpeg");
 
 // Test max output token limits per runtime model
+assert.equal(getMaxOutputTokens("gemini-4-argon", "gemini-4-argon-high"), 65536);
 assert.equal(getMaxOutputTokens("gemini-3.8-flash", "gemini-3.8-flash-tiered"), 65536);
 assert.equal(getMaxOutputTokens("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"), 65535);
 assert.equal(getMaxOutputTokens("claude-sonnet-5-5", "claude-sonnet-5-5-high"), 128000);
@@ -387,6 +397,19 @@ assert.equal(getFallbackRuntimeModel("gemini-3.6-flash-medium"), "gemini-3.5-fla
 assert.equal(getFallbackRuntimeModel("gemini-3.7-flash"), "gemini-3.5-flash-lite");
 assert.equal(getFallbackRuntimeModel("gemini-3.1-pro-low"), undefined);
 assert.equal(getFallbackRuntimeModel("claude-sonnet-5-5-high"), undefined);
+assert.equal(
+  getFallbackRuntimeModel("gemini-4-argon-medium"),
+  "gemini-3.8-flash-tiered",
+  "an unavailable Argon runtime must fall back to a serving one",
+);
+
+// The backend gates catalog size and model availability by User-Agent family,
+// so the default must stay in the `antigravity/cli/` form (defaultUserAgent
+// in client.ts documents the measured difference).
+assert.ok(
+  antigravityHeaders("test-token")["User-Agent"].startsWith("antigravity/cli/"),
+  `default User-Agent lost the capable client family: ${antigravityHeaders("test-token")["User-Agent"]}`,
+);
 
 // Pi 1.x hands providers a TranscriptContext: the system prompt and tool declarations
 // live in system messages, so buildRequest must replay them instead of reading

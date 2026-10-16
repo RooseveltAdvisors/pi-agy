@@ -11,9 +11,10 @@ export const PROVIDER_NAME = "Antigravity";
  * Catalog mirrors the Cloud Code Assist catalog as probed on 2026-10-07: the
  * `agy models` CLI list, `fetchAvailableModels`, and one live request per
  * runtime ID from this account.
- * - Gemini 4 Argon (Low / Medium / High): listed by `agy models` only, absent
- *   from this account's catalog and 404 on every ID shape, so not registered
- *   here yet
+ * - Gemini 4 Argon (Low / Medium / High), effort-specific runtime IDs. The
+ *   backend hides this family behind a User-Agent floor, so it only appears in
+ *   fetchAvailableModels and only answers when defaultUserAgent() in client.ts
+ *   reports a capable `antigravity/cli/` client
  * - Gemini 3.8 Flash (tiered runtime, Low / Medium / High)
  * - Gemini 3.5 Flash Lite (single reasoning level)
  * - Claude Sonnet 5.5 (Low / Medium / High)
@@ -29,6 +30,18 @@ export const PROVIDER_NAME = "Antigravity";
  * thinking effort travels separately in generationConfig.thinkingConfig.
  */
 export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
+  "gemini-4-argon": {
+    // Effort-specific runtime IDs, exactly as `agy models` prints them.
+    off: "gemini-4-argon-low",
+    routing: {
+      minimal: "gemini-4-argon-low",
+      low: "gemini-4-argon-low",
+      medium: "gemini-4-argon-medium",
+      high: "gemini-4-argon-high",
+      xhigh: "gemini-4-argon-high",
+    },
+    defaultRequestId: "gemini-4-argon-low",
+  },
   "claude-opus-5-5": {
     // Claude 5.5 ships three effort-specific runtime IDs in fetchAvailableModels.
     off: "claude-opus-5-5-low",
@@ -94,6 +107,11 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
  * Requesting more than these limits returns a 400 Bad Request from the API.
  */
 export const RUNTIME_MAX_OUTPUT_TOKENS: Record<string, number> = {
+  // Gemini 4 Argon publishes maxOutputTokens 65536 in fetchAvailableModels.
+  "gemini-4-argon": 65536,
+  "gemini-4-argon-low": 65536,
+  "gemini-4-argon-medium": 65536,
+  "gemini-4-argon-high": 65536,
   "gemini-3.8-flash": 65536,
   "gemini-3.8-flash-tiered": 65536,
   "gemini-3.5-flash-lite": 65535,
@@ -194,6 +212,17 @@ const thinkingLevelMaps = {
 /** Same set as `agy models`, collapsed to public Pi model IDs. */
 export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
   {
+    id: "gemini-4-argon",
+    name: "Gemini 4 Argon (Antigravity)",
+    reasoning: true,
+    thinkingLevelMap: thinkingLevelMaps.lowMediumHigh,
+    input: ["text", "image"],
+    cost: freeCost,
+    // maxTokens and maxOutputTokens come straight from fetchAvailableModels.
+    contextWindow: 1048576,
+    maxTokens: 65536,
+  },
+  {
     id: "claude-opus-5-5",
     name: "Claude Opus 5.5 (Antigravity)",
     reasoning: true,
@@ -287,6 +316,9 @@ export function getAntigravityRequestModelId(modelId: string, effort: string | u
  * 2026-10-07.
  */
 export function getFallbackRuntimeModel(runtimeModel: string, effort?: string): string | undefined {
+  if (runtimeModel.startsWith("gemini-4-argon")) {
+    return "gemini-3.8-flash-tiered";
+  }
   if (runtimeModel === "gemini-3.8-flash-tiered") {
     return getAntigravityRequestModelId("gemini-3.5-flash-lite", effort);
   }

@@ -59,11 +59,20 @@ export function endpointCandidates(): string[] {
   return explicit ? [assertSafeApiBaseUrl(explicit)] : ENDPOINT_FALLBACKS;
 }
 
+/**
+ * The backend gates catalog size and model availability by User-Agent family.
+ * Verified 2026-10-07 against daily-cloudcode-pa.googleapis.com:
+ * - `antigravity/1.15.8 <os>/<arch>` (what this package sent before) returned a
+ *   23-id catalog and made `gemini-4-argon-*` answer 404, while `agy models`
+ *   listed those models as available.
+ * - `antigravity/cli/1.4.0` returns a 29-id catalog including Gemini 4 Argon,
+ *   and serves every runtime this package registers. The short form is enough:
+ *   the official CLI's extra parenthetical and its `cl=` number change nothing,
+ *   and a non-`cli` UA form answered 403 for the same request.
+ * Override with ANTIGRAVITY_USER_AGENT when Google moves the floor again.
+ */
 function defaultUserAgent(): string {
-  const os =
-    process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "windows" : "linux";
-  const arch = process.arch === "x64" ? "amd64" : process.arch;
-  return `antigravity/1.15.8 ${os}/${arch}`;
+  return "antigravity/cli/1.4.0";
 }
 
 export function antigravityHeaders(token: string): Record<string, string> {
@@ -223,6 +232,7 @@ function buildModelMatchRegex(requestedId: string): RegExp {
     return /gemini[- ]3\.5[- ]flash \(medium\)/i;
   if (req === "gemini-3.5-flash-high" || req === "gemini-3-flash-agent")
     return /gemini[- ]3\.5[- ]flash \(high\)/i;
+  if (req.includes("gemini-4-argon")) return /gemini[- ]4[- ]argon/i;
   if (req.includes("claude-opus-5-5")) return /claude.*opus.*5\.5/i;
   if (req.includes("claude-sonnet-5-5")) return /claude.*sonnet.*5\.5/i;
   if (req.includes("claude-opus-4-6")) return /claude.*opus.*4\.6/i;
